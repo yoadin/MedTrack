@@ -63,8 +63,9 @@ users/{userId}
 
 ## Security
 
-- Firestore security rules only allow a signed-in user to read and write their own data:
+- Firestore security rules only allow a signed-in user to read and write their own data.
 
+<!-- 
 ```
 rules_version = '2';
 service cloud.firestore {
@@ -75,6 +76,7 @@ service cloud.firestore {
   }
 }
 ```
+-->
 
 - `lib/firebase_options.dart` contains Firebase client API keys. These identify the Firebase project and are meant to be included in apps. They do not give access to the data; the security rules above do. GitHub may still flag them as "exposed secrets"; those alerts can be closed as false positives.
 - Never commit service account files, Admin SDK keys, or signing keys.
