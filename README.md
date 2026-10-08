@@ -6,7 +6,7 @@ A mobile app that helps people keep track of their medications and doctor appoin
 
 ## Status
 
-This project is under active development (graduation project, summer camp).
+This project is under active development.
 
 | Feature | Status |
 | --- | --- |
@@ -19,9 +19,11 @@ This project is under active development (graduation project, summer camp).
 | Text scanning of the box to fill in the medicine name | Idea |
 | History view to show a doctor (stopped medications, end dates) | Planned |
 
+<!-- 
 ## Screenshots
 
 _Add screenshots here (login, medication list, add medication)._
+-->
 
 ## Tech stack
 
