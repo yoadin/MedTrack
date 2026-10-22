@@ -7,6 +7,7 @@ class Medication {
   final String form;
   final List<String> times; // 24h format, e.g. "08:00"
   final String notes;
+  final DateTime? createdAt;
 
   const Medication({
     required this.id,
@@ -15,10 +16,12 @@ class Medication {
     required this.form,
     required this.times,
     required this.notes,
+    this.createdAt,
   });
 
   factory Medication.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
+    final created = d['createdAt'];
     return Medication(
       id: doc.id,
       name: d['name'] as String? ?? '',
@@ -26,6 +29,7 @@ class Medication {
       form: d['form'] as String? ?? '',
       times: List<String>.from(d['times'] as List? ?? const []),
       notes: d['notes'] as String? ?? '',
+      createdAt: created is Timestamp ? created.toDate() : null,
     );
   }
 }

@@ -5,15 +5,13 @@ import 'package:medtrack/services/notification_service.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_shell.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-    if (!kIsWeb) {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (!kIsWeb) {
     await NotificationService.instance.init();
   }
   runApp(const MedTrackApp());
@@ -46,7 +44,7 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        return snapshot.hasData ? const HomeScreen() : const AuthScreen();
+        return snapshot.hasData ? const MainShell() : const AuthScreen();
       },
     );
   }

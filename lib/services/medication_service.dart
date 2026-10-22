@@ -32,7 +32,7 @@ class MedicationService {
       'form': form,
       'times': times,
       'notes': notes,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': Timestamp.now(),
     });
   }
 
