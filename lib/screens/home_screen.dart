@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Rebuild all reminders whenever the medication list changes
     // (add, edit, delete). Works offline too, from Firestore's cache.
     _reminderSub = _service.watchAll().listen(
-          (meds) => NotificationService.instance.rescheduleAll(meds),
+          (meds) => NotificationService.instance.syncMedications(meds),
         );
   }
 
@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _reminderSub?.cancel();
     _reminderSub = null;
     // Remove this user's reminders from the phone before signing out.
-    await NotificationService.instance.rescheduleAll([]);
+    await NotificationService.instance.clearAll();
     await FirebaseAuth.instance.signOut();
   }
 

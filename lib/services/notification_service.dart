@@ -3,7 +3,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../models/appointment.dart';
 import '../models/medication.dart';
+import '../utils/format.dart';
 
 class NotificationService {
   NotificationService._();
@@ -11,17 +13,25 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
 
+  // Appointment reminders: the evening before, and one hour before.
+  static const _dayBeforeHour = 18;
+  static const _dayBeforeMinute = 0;
+  static const _appointmentIdBase = 100000;
+
+  List<Medication> _meds = const [];
+  List<Appointment> _appointments = const [];
+  Future<void> _queue = Future.value();
+
   NotificationDetails _detailsFor(String body) => NotificationDetails(
-    android: AndroidNotificationDetails(
-      'med_reminders',
-      'Medication reminders',
-      channelDescription: 'Reminders to take your medicines',
-      importance: Importance.high,
-      priority: Priority.high,
-      // Shows the full text when the notification is expanded.
-      styleInformation: BigTextStyleInformation(body),
-    ),
-  );
+        android: AndroidNotificationDetails(
+          'med_reminders',
+          'Medication reminders',
+          channelDescription: 'Reminders to take your medicines',
+          importance: Importance.high,
+          priority: Priority.high,
+          styleInformation: BigTextStyleInformation(body),
+        ),
+      );
 
   Future<void> init() async {
     tzdata.initializeTimeZones();
@@ -35,38 +45,72 @@ class NotificationService {
 
   Future<void> requestPermissions() async {
     if (kIsWeb) return;
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     await android?.requestNotificationsPermission();
     await android?.requestExactAlarmsPermission();
+  }
+
+  Future<void> syncMedications(List<Medication> meds) {
+    _meds = meds;
+    return _rebuild();
+  }
+
+  Future<void> syncAppointments(List<Appointment> appointments) {
+    _appointments = appointments;
+    return _rebuild();
+  }
+
+  /// Removes every reminder (used on log out).
+  Future<void> clearAll() {
+    _meds = const [];
+    _appointments = const [];
+    return _rebuild();
+  }
+
+  // Rebuilds run one after another, each using the latest lists.
+  Future<void> _rebuild() {
+    _queue = _queue.then((_) => _doRebuild());
+    return _queue;
   }
 
   /// Next moment (today or tomorrow) when the clock shows [hhmm].
   tz.TZDateTime _nextInstance(String hhmm) {
     final parts = hhmm.split(':');
     final now = tz.TZDateTime.now(tz.local);
-    var t = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      int.parse(parts[0]),
-      int.parse(parts[1]),
-    );
+    var t = tz.TZDateTime(tz.local, now.year, now.month, now.day,
+        int.parse(parts[0]), int.parse(parts[1]));
     if (!t.isAfter(now)) t = t.add(const Duration(days: 1));
     return t;
   }
 
-  /// Cancels all reminders and schedules a daily one for every time of
-  /// every medication.
-  Future<void> rescheduleAll(List<Medication> meds) async {
-    if (kIsWeb) return;
-    await _plugin.cancelAll();
+  Future<void> _schedule({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime when,
+    bool daily = false,
+  }) {
+    debugPrint('Scheduling "$title" at $when');
+    return _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: when,
+      notificationDetails: _detailsFor(body),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: daily ? DateTimeComponents.time : null,
+    );
+  }
 
-    var id = 0;
-          for (final med in meds) {
+  Future<void> _doRebuild() async {
+    if (kIsWeb) return;
+    try {
+      await _plugin.cancelAll();
+
+      // Medications: one daily reminder per dose time.
+      var id = 0;
+      for (final med in _meds) {
         final body = [
           if (med.dose.isNotEmpty) 'Dose: ${med.dose}',
           if (med.form.isNotEmpty) med.form,
@@ -74,18 +118,54 @@ class NotificationService {
         final text = body.isEmpty ? 'Tap to open MedTrack' : body;
 
         for (final time in med.times) {
-          final when = _nextInstance(time);
-          debugPrint('Scheduling ${med.name} at $when');
-          await _plugin.zonedSchedule(
+          await _schedule(
             id: id++,
             title: 'Time to take ${med.name}',
             body: text,
-            scheduledDate: when,
-            notificationDetails: _detailsFor(text),
-            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-            matchDateTimeComponents: DateTimeComponents.time,
+            when: _nextInstance(time),
+            daily: true,
           );
         }
       }
+
+      // Appointments: the evening before, and one hour before.
+      final now = tz.TZDateTime.now(tz.local);
+      var apptId = _appointmentIdBase;
+      for (final a in _appointments) {
+        final when = tz.TZDateTime.from(a.dateTime, tz.local);
+        final info = [
+          'With ${a.doctor} at ${formatTime(a.dateTime)}',
+          if (a.place.isNotEmpty) a.place,
+        ].join(' · ');
+
+        final prev = when.subtract(const Duration(days: 1));
+        final dayBefore = tz.TZDateTime(tz.local, prev.year, prev.month,
+            prev.day, _dayBeforeHour, _dayBeforeMinute);
+        if (dayBefore.isAfter(now)) {
+          await _schedule(
+            id: apptId,
+            title: 'Appointment tomorrow',
+            body: info,
+            when: dayBefore,
+          );
+        }
+
+        final hourBefore = when.subtract(const Duration(hours: 1));
+        if (hourBefore.isAfter(now)) {
+          await _schedule(
+            id: apptId + 1,
+            title: 'Appointment in 1 hour',
+            body: info,
+            when: hourBefore,
+          );
+        }
+        apptId += 2;
+      }
+
+      final pending = await _plugin.pendingNotificationRequests();
+      debugPrint('Reminders pending: ${pending.length}');
+    } catch (e, st) {
+      debugPrint('Reminder scheduling FAILED: $e\n$st');
+    }
   }
 }

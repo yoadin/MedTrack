@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
 import 'today_screen.dart';
+import 'appointments_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -18,7 +19,7 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [TodayScreen(), HomeScreen()],
+        children: const [TodayScreen(), HomeScreen(), AppointmentsScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -33,6 +34,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.medication_outlined),
             selectedIcon: Icon(Icons.medication),
             label: 'Medications',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_outlined),
+            selectedIcon: Icon(Icons.event),
+            label: 'Appointments',
           ),
         ],
       ),
