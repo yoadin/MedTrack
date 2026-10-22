@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:medtrack/services/notification_service.dart';
 
 import '../models/medication.dart';
 import '../services/medication_service.dart';
+import '../services/notification_service.dart';
 import 'add_medication_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,6 +18,32 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _service = MedicationService();
   late final Stream<List<Medication>> _stream = _service.watchAll();
+  StreamSubscription<List<Medication>>? _reminderSub;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.instance.requestPermissions();
+    // Rebuild all reminders whenever the medication list changes
+    // (add, edit, delete). Works offline too, from Firestore's cache.
+    _reminderSub = _service.watchAll().listen(
+          (meds) => NotificationService.instance.rescheduleAll(meds),
+        );
+  }
+
+  @override
+  void dispose() {
+    _reminderSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _logout() async {
+    await _reminderSub?.cancel();
+    _reminderSub = null;
+    // Remove this user's reminders from the phone before signing out.
+    await NotificationService.instance.rescheduleAll([]);
+    await FirebaseAuth.instance.signOut();
+  }
 
   Future<void> _confirmDelete(Medication med) async {
     final ok = await showDialog<bool>(
@@ -47,17 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('My medications'),
         actions: [
           IconButton(
-            tooltip: 'Test reminder',
-            icon: const Icon(Icons.notifications_active_outlined),
-            onPressed: () async {
-              await NotificationService.instance.requestPermissions();
-              await NotificationService.instance.scheduleTest();
-            },
-          ),
-          IconButton(
             tooltip: 'Log out',
             icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+            onPressed: _logout,
           ),
         ],
       ),
@@ -100,10 +120,9 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: meds.length,
             itemBuilder: (context, i) {
               final med = meds[i];
-              final details = [
-                med.dose,
-                med.form,
-              ].where((s) => s.isNotEmpty).join(' · ');
+              final details = [med.dose, med.form]
+                  .where((s) => s.isNotEmpty)
+                  .join(' · ');
               return Card(
                 child: ListTile(
                   onTap: () => Navigator.push(

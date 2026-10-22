@@ -37,7 +37,7 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   final List<String> _times = ['08:00'];
 
   @override
-    bool get _isEdit => widget.medication != null;
+  bool get _isEdit => widget.medication != null;
 
   @override
   void initState() {
@@ -90,14 +90,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     if (_times.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one time.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Add at least one time.')));
       return;
     }
     // Not awaited on purpose: Firestore saves to the phone right away and
     // syncs later, so this also works with a poor connection.
-        final name = _nameCtrl!.text.trim();
+    final name = _nameCtrl!.text.trim();
     final times = List<String>.from(_times);
     final Future<void> write = _isEdit
         ? _service.update(
@@ -116,28 +116,29 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
             notes: _notes.text.trim(),
           );
     write.catchError((Object e) => debugPrint('Save failed: $e'));
-    
-        
+
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'Edit medication' : 'Add medication')),
+      appBar: AppBar(
+        title: Text(_isEdit ? 'Edit medication' : 'Add medication'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Autocomplete<String>(
-              initialValue: TextEditingValue(text: widget.medication?.name ?? ''),
+              initialValue: TextEditingValue(
+                text: widget.medication?.name ?? '',
+              ),
               optionsBuilder: (value) {
                 final q = value.text.trim().toLowerCase();
                 if (q.length < 2) return const Iterable<String>.empty();
-                return _names
-                    .where((n) => n.toLowerCase().contains(q))
-                    .take(8);
+                return _names.where((n) => n.toLowerCase().contains(q)).take(8);
               },
               fieldViewBuilder: (context, controller, focusNode, onSubmit) {
                 _nameCtrl = controller;
@@ -163,6 +164,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                 labelText: 'Dose (e.g. 500 mg, 1 tablet, 5 ml)',
                 border: OutlineInputBorder(),
               ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Enter the dose' : null,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -178,8 +181,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               onChanged: (v) => setState(() => _form = v ?? _form),
             ),
             const SizedBox(height: 24),
-            Text('Times to take it',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Times to take it',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -208,7 +213,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            FilledButton(onPressed: _save, child: Text(_isEdit ? 'Save changes' : 'Save')),
+            FilledButton(
+              onPressed: _save,
+              child: Text(_isEdit ? 'Save changes' : 'Save'),
+            ),
           ],
         ),
       ),
