@@ -36,5 +36,22 @@ class MedicationService {
     });
   }
 
+    Future<void> update(
+    String id, {
+    required String name,
+    required String dose,
+    required String form,
+    required List<String> times,
+    required String notes,
+  }) {
+    return _col.doc(id).update({
+      'name': name,
+      'dose': dose,
+      'form': form,
+      'times': times,
+      'notes': notes,
+    });
+  }
+
   Future<void> delete(String id) => _col.doc(id).delete();
 }
