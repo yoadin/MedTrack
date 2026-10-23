@@ -6,6 +6,7 @@ import '../models/dose.dart';
 import '../models/medication.dart';
 import '../services/dose_log_service.dart';
 import '../services/medication_service.dart';
+import 'doctor_report_screen.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -104,7 +105,19 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Today')),
+      appBar: AppBar(
+        title: const Text('Today'),
+        actions: [
+          IconButton(
+            tooltip: 'Doctor report',
+            icon: const Icon(Icons.description_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DoctorReportScreen()),
+            ),
+          ),
+        ],
+      ),
       body: StreamBuilder<List<Medication>>(
         stream: _medStream,
         builder: (context, medSnap) {

@@ -49,5 +49,10 @@ class AppointmentService {
     });
   }
 
+  Future<List<Appointment>> fetchAll() async {
+    final snap = await _col.orderBy('dateTime').get();
+    return snap.docs.map(Appointment.fromDoc).toList();
+  }
+
   Future<void> delete(String id) => _col.doc(id).delete();
 }

@@ -53,5 +53,10 @@ class MedicationService {
     });
   }
 
+  Future<List<Medication>> fetchAll() async {
+    final snap = await _col.get();
+    return snap.docs.map(Medication.fromDoc).toList();
+  }
+
   Future<void> delete(String id) => _col.doc(id).delete();
 }

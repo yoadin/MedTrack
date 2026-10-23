@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/medication.dart';
+import '../models/dose_log.dart';
 
 class DoseLogService {
   CollectionReference<Map<String, dynamic>> get _col {
@@ -48,6 +49,12 @@ class DoseLogService {
       'status': status,
       'loggedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+    /// All logs from [date] ("2026-10-16") up to today.
+  Future<List<DoseLog>> fetchSince(String date) async {
+    final snap = await _col.where('date', isGreaterThanOrEqualTo: date).get();
+    return snap.docs.map(DoseLog.fromDoc).toList();
   }
 
   Future<void> undo(String logId) => _col.doc(logId).delete();
