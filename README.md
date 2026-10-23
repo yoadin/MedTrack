@@ -13,8 +13,8 @@ This project is under active development.
 | Sign up / log in with email and password | Done |
 | Add, edit and delete medications | Done |
 | Medicine name suggestions from the Ethiopian Essential Medicines List | Done |
-| Appointments list (doctor, place, date and time) | Planned |
-| Medication and appointment reminders (local notifications) | Planned |
+| Appointments list (doctor, place, date and time) | Done |
+| Medication and appointment reminders (local notifications) | Done |
 | Photo of the medicine box or strip, kept as medicine history | Planned |
 | Text scanning of the box to fill in the medicine name | Idea |
 | History view to show a doctor (stopped medications, end dates) | Planned |
@@ -65,7 +65,7 @@ users/{userId}
 
 - Firestore security rules only allow a signed-in user to read and write their own data.
 
-<!-- 
+
 ```
 rules_version = '2';
 service cloud.firestore {
@@ -76,7 +76,7 @@ service cloud.firestore {
   }
 }
 ```
--->
+
 
 - `lib/firebase_options.dart` contains Firebase client API keys. These identify the Firebase project and are meant to be included in apps. They do not give access to the data; the security rules above do. GitHub may still flag them as "exposed secrets"; those alerts can be closed as false positives.
 - Never commit service account files, Admin SDK keys, or signing keys.
@@ -127,6 +127,7 @@ Requirements: Flutter SDK, and a Firebase project of your own.
 ## Author
 
 Built by [Kalkidan Asdro] as a graduation project.
+CTC-3081-26
 
 ## Acknowledgements
 
