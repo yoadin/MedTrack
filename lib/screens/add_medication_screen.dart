@@ -2,9 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:medtrack/services/medication_service.dart';
 
-import '../models/medication.dart'; // add to the imports
+import '../models/medication.dart';
+import '../services/medication_service.dart';
+import '../utils/format.dart';
 
 class AddMedicationScreen extends StatefulWidget {
   final Medication? medication; // null = adding, not null = editing
@@ -36,13 +37,22 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   String _form = _forms.first;
   final List<String> _times = ['08:00'];
 
-  @override
+  late DateTime _start;
+  late DateTime _end;
+  bool _hasEnd = false;
+
   bool get _isEdit => widget.medication != null;
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   @override
   void initState() {
     super.initState();
     _loadNames();
+
+    var start = _dateOnly(DateTime.now());
+    DateTime? end;
+
     final med = widget.medication;
     if (med != null) {
       _dose.text = med.dose;
@@ -53,7 +63,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
           ..clear()
           ..addAll(med.times);
       }
+      start = med.startDate ??
+          (med.createdAt != null ? _dateOnly(med.createdAt!) : start);
+      end = med.endDate;
     }
+
+    _start = start;
+    _hasEnd = end != null;
+    _end = end ?? DateTime(start.year, start.month, start.day + 6);
   }
 
   Future<void> _loadNames() async {
@@ -87,18 +104,53 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     }
   }
 
+  Future<void> _pickStart() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _start,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked == null) return;
+    setState(() {
+      _start = _dateOnly(picked);
+      if (_end.isBefore(_start)) _end = _start;
+    });
+  }
+
+  Future<void> _pickEnd() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _end.isBefore(_start) ? _start : _end,
+      firstDate: _start,
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked == null) return;
+    setState(() => _end = _dateOnly(picked));
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     if (_times.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Add at least one time.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one time.')),
+      );
       return;
     }
-    // Not awaited on purpose: Firestore saves to the phone right away and
-    // syncs later, so this also works with a poor connection.
+    if (_hasEnd && _end.isBefore(_start)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('The end date cannot be before the start date.')),
+      );
+      return;
+    }
+
     final name = _nameCtrl!.text.trim();
     final times = List<String>.from(_times);
+    final endDate = _hasEnd ? _end : null;
+
+    // Not awaited on purpose: Firestore saves to the phone right away and
+    // syncs later, so this also works with a poor connection.
     final Future<void> write = _isEdit
         ? _service.update(
             widget.medication!.id,
@@ -107,6 +159,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
             form: _form,
             times: times,
             notes: _notes.text.trim(),
+            startDate: _start,
+            endDate: endDate,
           )
         : _service.add(
             name: name,
@@ -114,9 +168,10 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
             form: _form,
             times: times,
             notes: _notes.text.trim(),
+            startDate: _start,
+            endDate: endDate,
           );
     write.catchError((Object e) => debugPrint('Save failed: $e'));
-
     Navigator.pop(context);
   }
 
@@ -132,13 +187,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Autocomplete<String>(
-              initialValue: TextEditingValue(
-                text: widget.medication?.name ?? '',
-              ),
+              initialValue:
+                  TextEditingValue(text: widget.medication?.name ?? ''),
               optionsBuilder: (value) {
                 final q = value.text.trim().toLowerCase();
                 if (q.length < 2) return const Iterable<String>.empty();
-                return _names.where((n) => n.toLowerCase().contains(q)).take(8);
+                return _names
+                    .where((n) => n.toLowerCase().contains(q))
+                    .take(8);
               },
               fieldViewBuilder: (context, controller, focusNode, onSubmit) {
                 _nameCtrl = controller;
@@ -181,10 +237,8 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
               onChanged: (v) => setState(() => _form = v ?? _form),
             ),
             const SizedBox(height: 24),
-            Text(
-              'Times to take it',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('Times to take it',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -202,6 +256,33 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            Text('How long', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _pickStart,
+                icon: const Icon(Icons.play_arrow_outlined),
+                label: Text('Starts: ${formatDate(_start)}'),
+              ),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Set an end date'),
+              subtitle: const Text('Leave off if there is no end date'),
+              value: _hasEnd,
+              onChanged: (v) => setState(() => _hasEnd = v),
+            ),
+            if (_hasEnd)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _pickEnd,
+                  icon: const Icon(Icons.event),
+                  label: Text('Ends: ${formatDate(_end)} (last day)'),
+                ),
+              ),
             const SizedBox(height: 24),
             TextFormField(
               controller: _notes,

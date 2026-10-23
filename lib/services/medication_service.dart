@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/medication.dart';
+import '../utils/format.dart';
 
 class MedicationService {
   CollectionReference<Map<String, dynamic>> get _col {
@@ -19,12 +20,19 @@ class MedicationService {
         .map((snap) => snap.docs.map(Medication.fromDoc).toList());
   }
 
+  Future<List<Medication>> fetchAll() async {
+    final snap = await _col.get();
+    return snap.docs.map(Medication.fromDoc).toList();
+  }
+
   Future<void> add({
     required String name,
     required String dose,
     required String form,
     required List<String> times,
     required String notes,
+    required DateTime startDate,
+    DateTime? endDate,
   }) {
     return _col.add({
       'name': name,
@@ -32,17 +40,21 @@ class MedicationService {
       'form': form,
       'times': times,
       'notes': notes,
+      'startDate': dayKey(startDate),
+      'endDate': endDate == null ? null : dayKey(endDate),
       'createdAt': Timestamp.now(),
     });
   }
 
-    Future<void> update(
+  Future<void> update(
     String id, {
     required String name,
     required String dose,
     required String form,
     required List<String> times,
     required String notes,
+    required DateTime startDate,
+    DateTime? endDate,
   }) {
     return _col.doc(id).update({
       'name': name,
@@ -50,12 +62,9 @@ class MedicationService {
       'form': form,
       'times': times,
       'notes': notes,
+      'startDate': dayKey(startDate),
+      'endDate': endDate == null ? null : dayKey(endDate),
     });
-  }
-
-  Future<List<Medication>> fetchAll() async {
-    final snap = await _col.get();
-    return snap.docs.map(Medication.fromDoc).toList();
   }
 
   Future<void> delete(String id) => _col.doc(id).delete();

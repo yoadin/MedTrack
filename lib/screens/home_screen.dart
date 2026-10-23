@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/medication.dart';
 import '../services/medication_service.dart';
 import '../services/notification_service.dart';
+import '../utils/format.dart';
 import 'add_medication_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -68,6 +69,60 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String? _rangeText(Medication med) {
+    if (med.hasEnded) return 'Ended ${formatDate(med.endDate!)}';
+    if (med.startsLater) return 'Starts ${formatDate(med.startDate!)}';
+    if (med.endDate != null) return 'Until ${formatDate(med.endDate!)}';
+    return null;
+  }
+
+  Widget _medCard(Medication med, {bool finished = false}) {
+    final scheme = Theme.of(context).colorScheme;
+    final details =
+        [med.dose, med.form].where((s) => s.isNotEmpty).join(' · ');
+    final range = _rangeText(med);
+
+    return Card(
+      child: ListTile(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddMedicationScreen(medication: med),
+          ),
+        ),
+        leading: Icon(
+          Icons.medication_outlined,
+          color: finished ? scheme.onSurfaceVariant : null,
+        ),
+        title: Text(med.name),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (details.isNotEmpty) Text(details),
+            if (range != null) Text(range),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final t in med.times)
+                  Chip(
+                    label: Text(t),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+          ],
+        ),
+        trailing: IconButton(
+          tooltip: 'Delete',
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => _confirmDelete(med),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,50 +170,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           }
-          return ListView.builder(
+
+          final active = meds.where((m) => !m.hasEnded).toList();
+          final finished = meds.where((m) => m.hasEnded).toList();
+
+          return ListView(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
-            itemCount: meds.length,
-            itemBuilder: (context, i) {
-              final med = meds[i];
-              final details = [med.dose, med.form]
-                  .where((s) => s.isNotEmpty)
-                  .join(' · ');
-              return Card(
-                child: ListTile(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddMedicationScreen(medication: med),
-                    ),
-                  ),
-                  leading: const Icon(Icons.medication_outlined),
-                  title: Text(med.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (details.isNotEmpty) Text(details),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          for (final t in med.times)
-                            Chip(
-                              label: Text(t),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  trailing: IconButton(
-                    tooltip: 'Delete',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _confirmDelete(med),
-                  ),
+            children: [
+              for (final med in active) _medCard(med),
+              if (finished.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+                  child: Text('Finished',
+                      style: Theme.of(context).textTheme.titleSmall),
                 ),
-              );
-            },
+                for (final med in finished) _medCard(med, finished: true),
+              ],
+            ],
           );
         },
       ),

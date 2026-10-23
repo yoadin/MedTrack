@@ -61,7 +61,7 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
   int _days = 7;
   late Future<_ReportData> _future = _load(_days);
 
-    void _reload() {
+  void _reload() {
     setState(() {
       _future = _load(_days);
     });
@@ -80,29 +80,41 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
     final logs = results[1] as List<DoseLog>;
     final appointments = results[2] as List<Appointment>;
 
-    meds.sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    meds.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final logsById = {for (final l in logs) l.id: l};
     final currentIds = meds.map((m) => m.id).toSet();
     final stats = <_MedStats>[];
 
     // Current medications
+    // Current medications
     for (final med in meds) {
+      // Skip medications that ended before this period began.   // ← NEW
+      if (med.endDate != null && med.endDate!.isBefore(start))
+        continue; // ← NEW
+
       final slots = <String>{};
 
       // Doses that were due in the period and are already in the past.
       for (var i = 0; i < days; i++) {
         final day = DateTime(start.year, start.month, start.day + i);
+        if (!med.isActiveOn(day)) continue; // ← NEW
         for (final time in med.times) {
           final p = time.split(':');
-          final scheduled = DateTime(day.year, day.month, day.day,
-              int.parse(p[0]), int.parse(p[1]));
+          final scheduled = DateTime(
+            day.year,
+            day.month,
+            day.day,
+            int.parse(p[0]),
+            int.parse(p[1]),
+          );
           final created = med.createdAt;
-          final pastDue = scheduled.isBefore(now) &&
+          final pastDue =
+              scheduled.isBefore(now) &&
               (created == null || !created.isAfter(scheduled));
           if (pastDue) {
-            slots.add(DoseLogService.logId(
-                med.id, DoseLogService.dateKey(day), time));
+            slots.add(
+              DoseLogService.logId(med.id, DoseLogService.dateKey(day), time),
+            );
           }
         }
       }
@@ -153,8 +165,9 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
       now: now,
       start: start,
       stats: stats,
-      appointments:
-          appointments.where((a) => !a.dateTime.isBefore(start)).toList(),
+      appointments: appointments
+          .where((a) => !a.dateTime.isBefore(start))
+          .toList(),
     );
   }
 
@@ -199,8 +212,10 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text('Could not build the report.\n${snap.error}',
-                          textAlign: TextAlign.center),
+                      child: Text(
+                        'Could not build the report.\n${snap.error}',
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   );
                 }
@@ -228,8 +243,10 @@ class _ReportView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Prepared ${formatDate(data.now)}${email.isEmpty ? '' : ' · $email'}',
-            style: theme.textTheme.bodySmall),
+        Text(
+          'Prepared ${formatDate(data.now)}${email.isEmpty ? '' : ' · $email'}',
+          style: theme.textTheme.bodySmall,
+        ),
         const SizedBox(height: 12),
         _SummaryCard(data: data, days: days),
         const SizedBox(height: 20),
@@ -250,11 +267,13 @@ class _ReportView extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.event),
                 title: Text(a.doctor),
-                subtitle: Text([
-                  '${formatDate(a.dateTime)} · ${formatTime(a.dateTime)}',
-                  if (a.place.isNotEmpty) a.place,
-                  if (a.notes.isNotEmpty) 'Notes: ${a.notes}',
-                ].join('\n')),
+                subtitle: Text(
+                  [
+                    '${formatDate(a.dateTime)} · ${formatTime(a.dateTime)}',
+                    if (a.place.isNotEmpty) a.place,
+                    if (a.notes.isNotEmpty) 'Notes: ${a.notes}',
+                  ].join('\n'),
+                ),
                 isThreeLine: a.place.isNotEmpty || a.notes.isNotEmpty,
               ),
             ),
@@ -287,25 +306,29 @@ class _SummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Last $days days', style: theme.textTheme.titleMedium),
-            Text('${formatDate(data.start)} – ${formatDate(today)}',
-                style: theme.textTheme.bodySmall),
+            Text(
+              '${formatDate(data.start)} – ${formatDate(today)}',
+              style: theme.textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: _Count(
-                      label: 'Taken',
-                      value: '${data.taken}',
-                      color: Colors.green.shade700),
+                    label: 'Taken',
+                    value: '${data.taken}',
+                    color: Colors.green.shade700,
+                  ),
                 ),
                 Expanded(
                   child: _Count(label: 'Skipped', value: '${data.skipped}'),
                 ),
                 Expanded(
                   child: _Count(
-                      label: 'Missed',
-                      value: '${data.missed}',
-                      color: theme.colorScheme.error),
+                    label: 'Missed',
+                    value: '${data.missed}',
+                    color: theme.colorScheme.error,
+                  ),
                 ),
               ],
             ),
@@ -318,7 +341,7 @@ class _SummaryCard extends StatelessWidget {
               data.scheduled == 0
                   ? 'No scheduled doses in this period.'
                   : '${data.taken} of ${data.scheduled} scheduled doses '
-                      'recorded as taken (${data.percent}%)',
+                        'recorded as taken (${data.percent}%)',
               style: theme.textTheme.bodySmall,
             ),
           ],
@@ -349,42 +372,49 @@ class _MedCard extends StatelessWidget {
             if (stats.details.isNotEmpty) Text(stats.details),
             if (med != null && med.times.isNotEmpty)
               Text('Times: ${med.times.join(', ')}'),
-            if (med?.createdAt != null)
-              Text('Added: ${formatDate(med!.createdAt!)}'),
-            if (med != null && med.notes.isNotEmpty) Text('Notes: ${med.notes}'),
+                        if (med != null) Text(_periodText(med)),
+            if (med != null && med.notes.isNotEmpty)
+              Text('Notes: ${med.notes}'),
             if (removed)
               Text(
                 'This medication was deleted from the app. '
                 'Only recorded doses are shown.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontStyle: FontStyle.italic),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: _Count(
-                      label: 'Taken',
-                      value: '${stats.taken}',
-                      color: Colors.green.shade700,
-                      small: true),
+                    label: 'Taken',
+                    value: '${stats.taken}',
+                    color: Colors.green.shade700,
+                    small: true,
+                  ),
                 ),
                 Expanded(
                   child: _Count(
-                      label: 'Skipped', value: '${stats.skipped}', small: true),
+                    label: 'Skipped',
+                    value: '${stats.skipped}',
+                    small: true,
+                  ),
                 ),
                 Expanded(
                   child: _Count(
-                      label: 'Missed',
-                      value: removed ? '–' : '${stats.missed}',
-                      color: theme.colorScheme.error,
-                      small: true),
+                    label: 'Missed',
+                    value: removed ? '–' : '${stats.missed}',
+                    color: theme.colorScheme.error,
+                    small: true,
+                  ),
                 ),
                 Expanded(
                   child: _Count(
-                      label: 'Taken %',
-                      value: removed ? '–' : '${stats.percent}%',
-                      small: true),
+                    label: 'Taken %',
+                    value: removed ? '–' : '${stats.percent}%',
+                    small: true,
+                  ),
                 ),
               ],
             ),
@@ -411,7 +441,9 @@ class _Count extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = small ? theme.textTheme.titleMedium : theme.textTheme.headlineSmall;
+    final style = small
+        ? theme.textTheme.titleMedium
+        : theme.textTheme.headlineSmall;
     return Column(
       children: [
         Text(value, style: style?.copyWith(color: color)),
@@ -419,4 +451,16 @@ class _Count extends StatelessWidget {
       ],
     );
   }
+}
+String _periodText(Medication med) {
+  final start = med.startDate ?? med.createdAt;
+  final parts = <String>[];
+  if (start != null) parts.add('From ${formatDate(start)}');
+  final end = med.endDate;
+  if (end == null) {
+    parts.add('ongoing');
+  } else {
+    parts.add('${med.hasEnded ? 'ended' : 'until'} ${formatDate(end)}');
+  }
+  return parts.join(' · ');
 }

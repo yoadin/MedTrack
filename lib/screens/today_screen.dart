@@ -56,7 +56,8 @@ class _TodayScreenState extends State<TodayScreen> {
     final nowKey = _hhmm(_now);
     final doses = <Dose>[];
 
-    for (final med in meds) {
+        for (final med in meds) {
+      if (!med.isActiveOn(_now)) continue; // ← NEW: skip medications outside their dates
       for (final time in med.times) {
         final key = DoseLogService.logId(med.id, _date, time);
         final logged = logs[key];

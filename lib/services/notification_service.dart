@@ -18,6 +18,10 @@ class NotificationService {
   static const _dayBeforeMinute = 0;
   static const _appointmentIdBase = 100000;
 
+  // Medications with an end date (or a later start) get one reminder per day.
+  static const _maxDaysAhead = 60;
+  static const _maxMedicationReminders = 400;
+
   List<Medication> _meds = const [];
   List<Appointment> _appointments = const [];
   Future<void> _queue = Future.value();
@@ -84,6 +88,23 @@ class NotificationService {
     return t;
   }
 
+  /// One reminder moment per day per dose time, only on days when the
+  /// medication is active, for the next [_maxDaysAhead] days.
+  List<tz.TZDateTime> _datedReminders(Medication med, tz.TZDateTime now) {
+    final result = <tz.TZDateTime>[];
+    for (var i = 0; i < _maxDaysAhead; i++) {
+      final day = DateTime(now.year, now.month, now.day + i);
+      if (!med.isActiveOn(day)) continue;
+      for (final time in med.times) {
+        final p = time.split(':');
+        final when = tz.TZDateTime(tz.local, day.year, day.month, day.day,
+            int.parse(p[0]), int.parse(p[1]));
+        if (when.isAfter(now)) result.add(when);
+      }
+    }
+    return result;
+  }
+
   Future<void> _schedule({
     required int id,
     required String title,
@@ -107,29 +128,42 @@ class NotificationService {
     if (kIsWeb) return;
     try {
       await _plugin.cancelAll();
+      final now = tz.TZDateTime.now(tz.local);
 
-      // Medications: one daily reminder per dose time.
+      // Medications
       var id = 0;
       for (final med in _meds) {
+        if (med.hasEnded) continue;
+
         final body = [
           if (med.dose.isNotEmpty) 'Dose: ${med.dose}',
           if (med.form.isNotEmpty) med.form,
         ].join(' · ');
         final text = body.isEmpty ? 'Tap to open MedTrack' : body;
+        final title = 'Time to take ${med.name}';
 
-        for (final time in med.times) {
-          await _schedule(
-            id: id++,
-            title: 'Time to take ${med.name}',
-            body: text,
-            when: _nextInstance(time),
-            daily: true,
-          );
+        if (med.endDate == null && !med.startsLater) {
+          // Ongoing: one repeating daily reminder per dose time.
+          for (final time in med.times) {
+            if (id >= _maxMedicationReminders) break;
+            await _schedule(
+              id: id++,
+              title: title,
+              body: text,
+              when: _nextInstance(time),
+              daily: true,
+            );
+          }
+        } else {
+          // Has an end date (or starts later): one reminder per day.
+          for (final when in _datedReminders(med, now)) {
+            if (id >= _maxMedicationReminders) break;
+            await _schedule(id: id++, title: title, body: text, when: when);
+          }
         }
       }
 
       // Appointments: the evening before, and one hour before.
-      final now = tz.TZDateTime.now(tz.local);
       var apptId = _appointmentIdBase;
       for (final a in _appointments) {
         final when = tz.TZDateTime.from(a.dateTime, tz.local);
