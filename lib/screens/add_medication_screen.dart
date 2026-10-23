@@ -40,6 +40,9 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
   late DateTime _start;
   late DateTime _end;
   bool _hasEnd = false;
+  
+  List<Medication> _existing = const [];   // ← NEW
+  bool _saving = false;                    // ← NEW
 
   bool get _isEdit => widget.medication != null;
 
@@ -71,6 +74,12 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     _start = start;
     _hasEnd = end != null;
     _end = end ?? DateTime(start.year, start.month, start.day + 6);
+        // Existing medications, used to catch duplicates when saving.
+    _service.watchAll().first.then((list) {
+      if (mounted) _existing = list;
+    }).catchError((Object e) {
+      debugPrint('Could not load existing medications: $e');
+    });
   }
 
   Future<void> _loadNames() async {
@@ -129,7 +138,69 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     setState(() => _end = _dateOnly(picked));
   }
 
-  void _save() {
+    /// Do the date ranges of [other] and this form overlap?
+  bool _overlaps(Medication other) {
+    final myEnd = _hasEnd ? _end : null;
+    final endsBefore =
+        other.endDate != null && other.endDate!.isBefore(_start);
+    final startsAfter = myEnd != null &&
+        other.startDate != null &&
+        other.startDate!.isAfter(myEnd);
+    return !endsBefore && !startsAfter;
+  }
+
+  /// Another medication with the same name and overlapping dates, if any.
+  Medication? _findDuplicate(String name) {
+    final wanted = name.trim().toLowerCase();
+    for (final other in _existing) {
+      if (other.id == widget.medication?.id) continue; // the one being edited
+      if (other.name.trim().toLowerCase() != wanted) continue;
+      if (_overlaps(other)) return other;
+    }
+    return null;
+  }
+
+  void _showDuplicate(Medication other) {
+    final details =
+        [other.dose, other.form].where((s) => s.isNotEmpty).join(' · ');
+    final range = other.endDate == null
+        ? 'ongoing'
+        : 'until ${formatDate(other.endDate!)}';
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Already in your list'),
+        content: Text(
+          'You already have ${other.name}'
+          '${details.isEmpty ? '' : ' ($details)'}, $range.\n\n'
+          'Edit that entry instead. If the treatment has changed, set its '
+          'end date first and then add the new one.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx); // close the dialog
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddMedicationScreen(medication: other),
+                ),
+              );
+            },
+            child: const Text('Edit existing'),
+          ),
+        ],
+      ),
+    );
+  }
+
+    void _save() {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
     if (_times.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -146,6 +217,14 @@ class _AddMedicationScreenState extends State<AddMedicationScreen> {
     }
 
     final name = _nameCtrl!.text.trim();
+
+    final duplicate = _findDuplicate(name);
+    if (duplicate != null) {
+      _showDuplicate(duplicate);
+      return;
+    }
+
+    _saving = true;
     final times = List<String>.from(_times);
     final endDate = _hasEnd ? _end : null;
 
