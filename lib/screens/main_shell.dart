@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'today_screen.dart';
 import 'appointments_screen.dart';
+import '../widgets/disclaimer.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -14,6 +15,19 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
+    @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkDisclaimer());
+  }
+
+  Future<void> _checkDisclaimer() async {
+    final accepted = await hasAcceptedDisclaimer();
+    if (!accepted && mounted) {
+      await showDisclaimer(context, mustAccept: true);
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(

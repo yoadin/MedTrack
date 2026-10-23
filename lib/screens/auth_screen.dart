@@ -151,6 +151,12 @@ class _AuthScreenState extends State<AuthScreen> {
                           ? "Don't have an account? Sign up"
                           : 'Already have an account? Log in'),
                     ),
+                                        const SizedBox(height: 16),
+                    Text(
+                      'MedTrack is a tracking tool. It does not give medical advice.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),

@@ -7,6 +7,7 @@ import '../models/medication.dart';
 import '../services/dose_log_service.dart';
 import '../services/medication_service.dart';
 import 'doctor_report_screen.dart';
+import '../widgets/disclaimer.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -56,8 +57,9 @@ class _TodayScreenState extends State<TodayScreen> {
     final nowKey = _hhmm(_now);
     final doses = <Dose>[];
 
-        for (final med in meds) {
-      if (!med.isActiveOn(_now)) continue; // ← NEW: skip medications outside their dates
+    for (final med in meds) {
+      if (!med.isActiveOn(_now))
+        continue; // ← NEW: skip medications outside their dates
       for (final time in med.times) {
         final key = DoseLogService.logId(med.id, _date, time);
         final logged = logs[key];
@@ -76,8 +78,13 @@ class _TodayScreenState extends State<TodayScreen> {
         // Don't count a dose as missed if the medication was added after it.
         if (status == DoseStatus.missed && med.createdAt != null) {
           final p = time.split(':');
-          final scheduled = DateTime(_now.year, _now.month, _now.day,
-              int.parse(p[0]), int.parse(p[1]));
+          final scheduled = DateTime(
+            _now.year,
+            _now.month,
+            _now.day,
+            int.parse(p[0]),
+            int.parse(p[1]),
+          );
           if (med.createdAt!.isAfter(scheduled)) continue;
         }
 
@@ -110,7 +117,13 @@ class _TodayScreenState extends State<TodayScreen> {
         title: const Text('Today'),
         actions: [
           IconButton(
+            tooltip: 'About MedTrack',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => showDisclaimer(context),
+          ),
+          IconButton(
             tooltip: 'Doctor report',
+            // ...the rest stays the same
             icon: const Icon(Icons.description_outlined),
             onPressed: () => Navigator.push(
               context,
@@ -151,8 +164,9 @@ class _TodayScreenState extends State<TodayScreen> {
               if (doses.isEmpty) {
                 return const Center(child: Text('No doses for today.'));
               }
-              final taken =
-                  doses.where((d) => d.status == DoseStatus.taken).length;
+              final taken = doses
+                  .where((d) => d.status == DoseStatus.taken)
+                  .length;
 
               return ListView(
                 padding: const EdgeInsets.all(12),
@@ -211,20 +225,16 @@ class _DoseCard extends StatelessWidget {
     final (icon, color, label) = switch (dose.status) {
       DoseStatus.upcoming => (Icons.schedule, scheme.primary, 'Upcoming'),
       DoseStatus.missed => (Icons.error_outline, scheme.error, 'Missed'),
-      DoseStatus.taken => (
-          Icons.check_circle,
-          Colors.green.shade700,
-          'Taken'
-        ),
+      DoseStatus.taken => (Icons.check_circle, Colors.green.shade700, 'Taken'),
       DoseStatus.skipped => (
-          Icons.remove_circle_outline,
-          scheme.onSurfaceVariant,
-          'Skipped'
-        ),
+        Icons.remove_circle_outline,
+        scheme.onSurfaceVariant,
+        'Skipped',
+      ),
     };
 
-    final isOpen = dose.status == DoseStatus.upcoming ||
-        dose.status == DoseStatus.missed;
+    final isOpen =
+        dose.status == DoseStatus.upcoming || dose.status == DoseStatus.missed;
 
     return Card(
       child: Padding(
@@ -237,8 +247,10 @@ class _DoseCard extends StatelessWidget {
                 Icon(icon, color: color),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(med.name,
-                      style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    med.name,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 Text(
                   dose.status == DoseStatus.missed
@@ -278,9 +290,10 @@ class _DoseCard extends StatelessWidget {
             else
               Row(
                 children: [
-                  Text(label,
-                      style: TextStyle(
-                          color: color, fontWeight: FontWeight.w600)),
+                  Text(
+                    label,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w600),
+                  ),
                   const Spacer(),
                   TextButton(onPressed: onUndo, child: const Text('Undo')),
                 ],
