@@ -8,6 +8,7 @@ import '../services/dose_log_service.dart';
 import '../services/medication_service.dart';
 import 'doctor_report_screen.dart';
 import '../widgets/disclaimer.dart';
+import '../widgets/app_drawer.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -98,6 +99,49 @@ class _TodayScreenState extends State<TodayScreen> {
 
   // Not awaited on purpose: Firestore saves on the phone immediately and
   // syncs later, so this also works offline.
+    // Warn when a dose is marked as taken more than this long before its time.
+  static const _earlyWindowMinutes = 60;
+
+  String _duration(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m min';
+    if (m == 0) return '$h h';
+    return '$h h $m min';
+  }
+
+  Future<void> _onTaken(Dose dose) async {
+    final now = DateTime.now();
+    final p = dose.time.split(':');
+    final scheduled = DateTime(
+        now.year, now.month, now.day, int.parse(p[0]), int.parse(p[1]));
+    final minutesEarly = scheduled.difference(now).inMinutes;
+
+    if (minutesEarly > _earlyWindowMinutes) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Taking it early?'),
+          content: Text(
+            '${dose.med.name} is scheduled for ${dose.time}, '
+            'in ${_duration(minutesEarly)}.\n\nMark it as taken now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Not yet'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Yes, mark as taken'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    _mark(dose, 'taken');
+  }
   void _mark(Dose dose, String status) {
     _logService
         .mark(med: dose.med, date: _date, time: dose.time, status: status)
@@ -113,17 +157,12 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),   // ← NEW
       appBar: AppBar(
         title: const Text('Today'),
         actions: [
           IconButton(
-            tooltip: 'About MedTrack',
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => showDisclaimer(context),
-          ),
-          IconButton(
             tooltip: 'Doctor report',
-            // ...the rest stays the same
             icon: const Icon(Icons.description_outlined),
             onPressed: () => Navigator.push(
               context,
@@ -188,7 +227,7 @@ class _TodayScreenState extends State<TodayScreen> {
                   for (final dose in doses)
                     _DoseCard(
                       dose: dose,
-                      onTaken: () => _mark(dose, 'taken'),
+                      onTaken: () => _onTaken(dose),
                       onSkip: () => _mark(dose, 'skipped'),
                       onUndo: () => _undo(dose),
                     ),

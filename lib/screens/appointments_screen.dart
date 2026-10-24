@@ -7,6 +7,7 @@ import '../services/appointment_service.dart';
 import '../services/notification_service.dart';
 import '../utils/format.dart';
 import 'add_appointment_screen.dart';
+import '../widgets/app_drawer.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -92,6 +93,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(title: const Text('Appointments')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(

@@ -1,19 +1,23 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:medtrack/services/notification_service.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_shell.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'services/notification_service.dart';
+import 'services/settings_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   if (!kIsWeb) {
     await NotificationService.instance.init();
   }
+  await SettingsService.instance.load();
   runApp(const MedTrackApp());
 }
 
@@ -22,11 +26,20 @@ class MedTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MedTrack',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
-      home: const AuthGate(),
+    return ListenableBuilder(
+      listenable: SettingsService.instance,
+      builder: (context, _) => MaterialApp(
+        title: 'MedTrack',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
+        darkTheme: ThemeData(
+          colorSchemeSeed: Colors.teal,
+          brightness: Brightness.dark,
+          useMaterial3: true,
+        ),
+        themeMode: SettingsService.instance.themeMode,
+        home: const AuthGate(),
+      ),
     );
   }
 }

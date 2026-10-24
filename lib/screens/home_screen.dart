@@ -1,6 +1,4 @@
 import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/medication.dart';
@@ -8,6 +6,7 @@ import '../services/medication_service.dart';
 import '../services/notification_service.dart';
 import '../utils/format.dart';
 import 'add_medication_screen.dart';
+import '../widgets/app_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,8 +26,9 @@ class _HomeScreenState extends State<HomeScreen> {
     NotificationService.instance.requestPermissions();
     // Rebuild all reminders whenever the medication list changes
     // (add, edit, delete). Works offline too, from Firestore's cache.
-    _reminderSub = _service.watchAll().listen(
+        _reminderSub = _service.watchAll().listen(
           (meds) => NotificationService.instance.syncMedications(meds),
+          onError: (Object e) => debugPrint('Medication stream: $e'),
         );
   }
 
@@ -38,13 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _logout() async {
-    await _reminderSub?.cancel();
-    _reminderSub = null;
-    // Remove this user's reminders from the phone before signing out.
-    await NotificationService.instance.clearAll();
-    await FirebaseAuth.instance.signOut();
-  }
 
   Future<void> _confirmDelete(Medication med) async {
     final ok = await showDialog<bool>(
@@ -126,15 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('My medications'),
-        actions: [
-          IconButton(
-            tooltip: 'Log out',
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
