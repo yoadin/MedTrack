@@ -8,6 +8,12 @@ import '../services/appointment_service.dart';
 import '../services/dose_log_service.dart';
 import '../services/medication_service.dart';
 import '../utils/format.dart';
+import 'dart:typed_data';
+
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 /// Dose counts for one medication over the chosen period.
 class _MedStats {
@@ -60,11 +66,33 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
 
   int _days = 7;
   late Future<_ReportData> _future = _load(_days);
+  bool _exporting = false;
 
   void _reload() {
     setState(() {
       _future = _load(_days);
     });
+  }
+
+    Future<void> _sharePdf() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final data = await _future; // the report currently on screen
+      final bytes = await _buildPdf(data, _days);
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'medtrack-report-${dayKey(DateTime.now())}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create the PDF ($e).')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   Future<_ReportData> _load(int days) async {
@@ -177,6 +205,17 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
       appBar: AppBar(
         title: const Text('Doctor report'),
         actions: [
+                    IconButton(
+            tooltip: 'Share as PDF',
+            icon: _exporting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: _exporting ? null : _sharePdf,
+          ),
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
@@ -463,4 +502,186 @@ String _periodText(Medication med) {
     parts.add('${med.hasEnded ? 'ended' : 'until'} ${formatDate(end)}');
   }
   return parts.join(' · ');
+}
+
+pw.Widget _pdfCount(String label, String value) => pw.Column(
+      children: [
+        pw.Text(value,
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.Text(label,
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+      ],
+    );
+
+Future<Uint8List> _buildPdf(_ReportData data, int days) async {
+  final email = FirebaseAuth.instance.currentUser?.email ?? '';
+  final today = DateTime(data.now.year, data.now.month, data.now.day);
+
+  // Optional font so notes written in Amharic can be printed.
+  // If the font file is not in the project, only Latin text shows.
+  final fallback = <pw.Font>[];
+  try {
+    final bytes =
+        await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+    fallback.add(pw.Font.ttf(bytes));
+  } catch (_) {}
+
+  final doc = pw.Document(
+    title: 'MedTrack medicine report',
+    theme: pw.ThemeData.withFont(
+      base: pw.Font.helvetica(),
+      bold: pw.Font.helveticaBold(),
+      italic: pw.Font.helveticaOblique(),
+      boldItalic: pw.Font.helveticaBoldOblique(),
+      fontFallback: fallback,
+    ),
+  );
+
+  final heading = pw.TextStyle(
+    fontSize: 15,
+    fontWeight: pw.FontWeight.bold,
+    color: PdfColors.teal700,
+  );
+  const small = pw.TextStyle(fontSize: 9, color: PdfColors.grey700);
+
+  doc.addPage(
+    pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(32),
+      footer: (ctx) => pw.Column(
+        children: [
+          pw.Divider(color: PdfColors.grey300),
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: pw.Text(
+                  'This report only shows what was recorded in MedTrack. '
+                  'It is not medical advice.',
+                  style: const pw.TextStyle(
+                      fontSize: 8, color: PdfColors.grey700),
+                ),
+              ),
+              pw.Text('Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+                  style: const pw.TextStyle(fontSize: 8)),
+            ],
+          ),
+        ],
+      ),
+      build: (ctx) => [
+        pw.Text(
+          'MedTrack medicine report',
+          style: pw.TextStyle(
+            fontSize: 22,
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColors.teal700,
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          'Prepared ${formatDate(data.now)}${email.isEmpty ? '' : ' | $email'}',
+          style: small,
+        ),
+        pw.Text(
+          'Period: ${formatDate(data.start)} - ${formatDate(today)} '
+          '(last $days days)',
+          style: small,
+        ),
+        pw.SizedBox(height: 14),
+
+        // Summary
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey400),
+            borderRadius: pw.BorderRadius.circular(6),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+            children: [
+              _pdfCount('Taken', '${data.taken}'),
+              _pdfCount('Skipped', '${data.skipped}'),
+              _pdfCount('Missed', '${data.missed}'),
+              _pdfCount('Taken %', '${data.percent}%'),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          data.scheduled == 0
+              ? 'No scheduled doses in this period.'
+              : '${data.taken} of ${data.scheduled} scheduled doses recorded '
+                  'as taken.',
+          style: small,
+        ),
+        pw.SizedBox(height: 16),
+
+        // Medicines
+        pw.Text('Medicines', style: heading),
+        pw.SizedBox(height: 6),
+        if (data.stats.isEmpty) pw.Text('No medications recorded.'),
+        for (final s in data.stats)
+          pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 8),
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey300),
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(s.name,
+                    style: pw.TextStyle(
+                        fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                if (s.details.isNotEmpty)
+                  pw.Text(s.details.replaceAll(' · ', ', ')),
+                if (s.med != null && s.med!.times.isNotEmpty)
+                  pw.Text('Times: ${s.med!.times.join(', ')}'),
+                if (s.med != null) pw.Text(_periodText(s.med!)),
+                if (s.med != null && s.med!.notes.isNotEmpty)
+                  pw.Text('Notes: ${s.med!.notes}'),
+                if (s.med == null)
+                  pw.Text(
+                    'Deleted from the app; only recorded doses are shown.',
+                    style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
+                  ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  s.med == null
+                      ? 'Taken ${s.taken}, skipped ${s.skipped}'
+                      : 'Taken ${s.taken}, skipped ${s.skipped}, '
+                          'missed ${s.missed} '
+                          '(taken ${s.percent}% of ${s.scheduled} scheduled)',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        pw.SizedBox(height: 10),
+
+        // Appointments
+        pw.Text('Appointments', style: heading),
+        pw.SizedBox(height: 6),
+        if (data.appointments.isEmpty)
+          pw.Text('No appointments in this period.'),
+        for (final a in data.appointments)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 6),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  '${formatDate(a.dateTime)} ${formatTime(a.dateTime)} - '
+                  '${a.doctor}${a.place.isNotEmpty ? ', ${a.place}' : ''}',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                if (a.notes.isNotEmpty) pw.Text('Notes: ${a.notes}'),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+
+  return doc.save();
 }

@@ -32,7 +32,8 @@ A mobile app that helps people keep track of their medicines and doctor appointm
 - Per medicine: dose, form, times, start and end dates, notes, and counts of taken, skipped and missed doses
 - Recent appointments, and a statement that the report is only what was recorded in the app
 - Counts only; the report never interprets them
-
+- Share the report as a PDF to send or print before a visit
+  
 **Account and settings**
 - Email and password sign-up and login
 - Profile (display name, email)
@@ -208,7 +209,6 @@ The file is created at `build/app/outputs/flutter-apk/app-release.apk`.
 
 ## Roadmap
 
-- PDF export of the doctor report
 - Discreet notifications (hide the medicine name on the lock screen)
 - Snooze, and critical reminders for important medicines
 - Amharic language support
