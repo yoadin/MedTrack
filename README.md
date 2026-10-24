@@ -55,22 +55,6 @@ Some phones (especially Tecno, Infinix and Xiaomi) stop background apps to save 
 4. **Autostart:** allow MedTrack in the phone's auto-start or background manager.
 5. Turn off Do Not Disturb while testing.
 
-## Screenshots
-
-| Today | Medications | Add medicine |
-| --- | --- | --- |
-| ![Today](/screenshot/flutter_01.jpg)
- | ![Medications](/screenshot/flutter_02.jpg)
-  | ![Add Medicine](/screenshot/flutter_04.png)
-  |
-
-| Appointments | Doctor report | Menu and settings |
-| --- | --- | --- |
-|  ![Appointments](/screenshot/flutter_03.jpg)
- |  ![Doctor Report](/screenshot/flutter_06.png)
- |  ![Menu and settings](URL or image-path)
- |
-
 ## Tech stack
 
 - **Flutter** (Dart) for the Android app
