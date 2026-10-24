@@ -1,52 +1,122 @@
 # MedTrack
 
-A mobile app that helps people keep track of their medications and doctor appointments, built with Flutter and Firebase. It is designed with Ethiopian users in mind, where many people know few medicine names beyond common painkillers, and where internet connections can be unreliable.
+A mobile app that helps people keep track of their medicines and doctor appointments, built with Flutter and Firebase. It is designed with Ethiopian users in mind: many people know few medicine names beyond common painkillers, and internet connections can be unreliable, so the app works offline and suggests medicine names from the Ethiopian Essential Medicines List.
 
-> **Disclaimer:** MedTrack is a personal record-keeping tool built as a learning project. It does not give medical advice. Always follow your doctor's or pharmacist's instructions.
+> **Disclaimer:** MedTrack is a personal record-keeping tool built as a learning project. It does not give medical advice, diagnose conditions, or suggest doses. Always follow your doctor's or pharmacist's instructions.
 
-## Status
+## Features
 
-This project is under active development.
+**Medicines**
+- Add, edit and delete medicines with dose, form (tablet, syrup, injection, ...), several times per day, and notes
+- Medicine name suggestions while typing (Ethiopian Essential Medicines List, 2024)
+- Optional start and end date for a treatment. A medicine whose end date has passed moves to a "Finished" list and stops showing on the daily schedule and in reminders, but stays in the history
+- Duplicate protection: the app stops you from adding a medicine with the same name as one that is already active in the same period, and offers to edit the existing one
 
-| Feature | Status |
-| --- | --- |
-| Sign up / log in with email and password | Done |
-| Add, edit and delete medications | Done |
-| Medicine name suggestions from the Ethiopian Essential Medicines List | Done |
-| Appointments list (doctor, place, date and time) | Done |
-| Medication and appointment reminders (local notifications) | Done |
-| Photo of the medicine box or strip, kept as medicine history | Planned |
-| Text scanning of the box to fill in the medicine name | Idea |
-| History view to show a doctor (stopped medications, end dates) | Planned |
+**Daily schedule**
+- "Today" screen lists every dose due today with **Taken** and **Skip** buttons, and an **Undo** option
+- A dose becomes **Missed** when its time passes without being recorded
+- Warns before a dose is marked as taken more than an hour early
+- Works offline: marks are saved on the phone and synced when the connection returns
 
-<!-- 
+**Reminders**
+- Local notifications that work without internet, showing the medicine name, dose and form
+- Daily repeating reminders for ongoing medicines; day-by-day reminders for medicines with an end date
+- Appointment reminders the evening before (18:00) and one hour before
+
+**Appointments**
+- Add, edit and delete appointments (doctor or clinic, place, date and time, notes)
+- Upcoming and past appointments are listed separately
+
+**Doctor report**
+- A summary screen for a doctor visit over the last 7, 14 or 30 days
+- Per medicine: dose, form, times, start and end dates, notes, and counts of taken, skipped and missed doses
+- Recent appointments, and a statement that the report is only what was recorded in the app
+- Counts only; the report never interprets them
+
+**Account and settings**
+- Email and password sign-up and login
+- Profile (display name, email)
+- Settings: light, dark or system theme; change password (the current password is confirmed first, and a reset link can be emailed)
+- About and disclaimer, shown when the app is first used and available from the menu any time
+
+## Install the APK (Android)
+
+1. Download `app-release.apk` from the **Releases** page of this repository.
+2. Open the file on your phone. If Android asks, allow installing apps from this source.
+3. Open MedTrack, create an account, and accept the disclaimer.
+
+### Phone settings for reliable reminders
+
+Some phones (especially Tecno, Infinix and Xiaomi) stop background apps to save battery, which can block reminders. If reminders do not arrive:
+
+1. **Allow notifications** for MedTrack, and make sure the **Medication reminders** category is on.
+2. **Alarms and reminders:** Settings > Apps > Special app access > Alarms and reminders > allow MedTrack.
+3. **Battery:** Settings > Apps > MedTrack > Battery > **No restrictions**.
+4. **Autostart:** allow MedTrack in the phone's auto-start or background manager.
+5. Turn off Do Not Disturb while testing.
+
 ## Screenshots
 
-_Add screenshots here (login, medication list, add medication)._
--->
+| Today | Medications | Add medicine |
+| --- | --- | --- |
+| ![Today](/screenshot/flutter_01.jpg)
+ | ![Medications](/screenshot/flutter_02.jpg)
+  | ![Add Medicine](/screenshot/flutter_04.png)
+  |
+
+| Appointments | Doctor report | Menu and settings |
+| --- | --- | --- |
+|  ![Appointments](/screenshot/flutter_03.jpg)
+ |  ![Doctor Report](/screenshot/flutter_06.png)
+ |  ![Menu and settings](URL or image-path)
+ |
 
 ## Tech stack
 
-- **Flutter** (Dart) for the app
+- **Flutter** (Dart) for the Android app
 - **Firebase Authentication** (email and password)
-- **Cloud Firestore** for the database (region: africa-south1, Johannesburg). Firestore keeps a local copy of the data on the phone, so the app keeps working with a weak connection and syncs later.
+- **Cloud Firestore** for the database, in the africa-south1 (Johannesburg) region. Firestore keeps a copy of the data on the phone, so the app keeps working offline and syncs later
+- **flutter_local_notifications** and **timezone** for reminders that work offline
+- **shared_preferences** for on-device settings (theme, disclaimer accepted)
+
+There is no custom server and no cloud functions; everything runs on the phone and Firebase.
 
 ## Project structure
 
 ```
 lib/
-  main.dart                       App start, Firebase setup, login gate
-  firebase_options.dart           Generated by FlutterFire (see "Security")
+  main.dart                          App start, Firebase setup, theme, login gate
+  firebase_options.dart              Generated by FlutterFire
   models/
-    medication.dart               Medication data class
+    medication.dart                  Medicine, with start/end date helpers
+    dose.dart                        One scheduled dose and its status
+    dose_log.dart                    A recorded dose (taken / skipped)
+    appointment.dart
   services/
-    medication_service.dart       All Firestore reads and writes
+    medication_service.dart          Firestore reads and writes for medicines
+    dose_log_service.dart            Dose records
+    appointment_service.dart
+    notification_service.dart        Schedules all reminders
+    settings_service.dart            Theme preference
   screens/
-    auth_screen.dart              Log in / sign up
-    home_screen.dart              Medication list
-    add_medication_screen.dart    Add and edit form (one screen for both)
+    auth_screen.dart                 Log in / sign up
+    main_shell.dart                  Bottom navigation, first-use disclaimer
+    today_screen.dart                Daily schedule, taken / skip / undo
+    home_screen.dart                 Medicines list (active and finished)
+    add_medication_screen.dart       Add and edit form, duplicate check
+    appointments_screen.dart
+    add_appointment_screen.dart
+    doctor_report_screen.dart
+    profile_screen.dart
+    settings_screen.dart
+    change_password_screen.dart
+  widgets/
+    app_drawer.dart                  Side menu
+    disclaimer.dart                  Disclaimer dialog
+  utils/
+    format.dart                      Date and time helpers
 assets/
-  medicine_names.json             Medicine names used for suggestions
+  medicine_names.json                Medicine names for suggestions
 ```
 
 ## Data model
@@ -56,46 +126,65 @@ Every user's data lives under their own user ID.
 ```
 users/{userId}
   medications/{medicationId}
-    name, dose, form, times (list of "HH:mm"), notes, createdAt
-  appointments/{appointmentId}      (planned)
+    name, dose, form, times (list of "HH:mm"), notes,
+    startDate, endDate ("yyyy-MM-dd", endDate empty = no end date), createdAt
+  doseLogs/{medicationId_date_time}
+    medicationId, medicationName, dose, form, date, time,
+    status ("taken" or "skipped"), loggedAt
+  appointments/{appointmentId}
     doctor, place, dateTime, notes, createdAt
 ```
 
-## Security
+Notes on the design:
+- Only **taken** and **skipped** are stored. **Missed** is worked out from the schedule, so no background job is needed.
+- A dose record's ID is built from the medicine, date and time, so marking the same dose twice overwrites the first mark instead of creating a duplicate.
+- Dose records keep the medicine name and dose, so the history stays readable even after a medicine is deleted.
 
-- Firestore security rules only allow a signed-in user to read and write their own data.
+## How reminders work
 
+- The app rebuilds all reminders from the current lists whenever a medicine or appointment is added, edited or deleted, and every time the app starts.
+- Ongoing medicines use one repeating daily reminder per dose time.
+- Medicines with an end date (or a later start) get one reminder per day for up to 60 days ahead, so they stop on the end date even if the app is not opened. The list is topped up whenever the app opens.
+- Reminders are scheduled with the phone's alarm system, so they fire without internet.
+- The app uses the Africa/Addis_Ababa time zone (UTC+3, no daylight saving).
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+## Security and privacy
+
+Health data is sensitive, so protection is part of the design:
+
+- **Login:** Firebase Authentication with email and password. Changing a password requires the current password first.
+- **Access rules:** Firestore security rules allow a signed-in user to read and write only their own data:
+
+  ```
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /users/{userId}/{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
-}
-```
-
-
-- `lib/firebase_options.dart` contains Firebase client API keys. These identify the Firebase project and are meant to be included in apps. They do not give access to the data; the security rules above do. GitHub may still flag them as "exposed secrets"; those alerts can be closed as false positives.
-- Never commit service account files, Admin SDK keys, or signing keys.
+  ```
+- **In transit:** all communication with Firebase uses HTTPS.
+- **On the phone:** Firestore's offline copy lives in the app's private storage. Reminder text can contain the medicine name, so it can be visible on the lock screen.
+- **API keys:** `lib/firebase_options.dart` contains Firebase client keys. These identify the Firebase project; they do not give access to data, which is protected by the rules above. GitHub may flag them as exposed secrets, and those alerts can be closed as false positives.
+- **Never commit** service account files, Admin SDK keys, or signing keystores.
+- **No medical advice:** the app only records what the user enters. It never suggests doses, interprets the report, or checks for drug interactions.
 
 ## Medicine data
 
 Medicine name suggestions come from the **Ethiopian Essential Medicines List, 7th edition (October 2024)**, published by the Ethiopian Food and Drug Authority (EFDA) and the Ministry of Health (document EFDA/GDL/067). The list was converted from the PDF into `assets/medicine_names.json` with a script.
 
 Limits of this data:
-
-- It contains generic names only, not brand names (for example "paracetamol", not "Panadol").
-- It covers essential medicines only, not every registered product.
-- It reflects the 2024 edition and may be out of date.
+- It has generic names only, not brand names (for example "paracetamol", not "Panadol")
+- It covers essential medicines, not every registered product
+- It reflects the 2024 edition and may be out of date
 
 Users can always type any name that is not in the list.
 
-## Getting started
+## Build and run
 
-Requirements: Flutter SDK, and a Firebase project of your own.
+Requirements: Flutter SDK, Android Studio or the Android SDK, and a Firebase project of your own.
 
 1. Clone the repository and install packages:
    ```bash
@@ -103,33 +192,50 @@ Requirements: Flutter SDK, and a Firebase project of your own.
    cd medtrack
    flutter pub get
    ```
-2. Create your own Firebase project, enable **Email/Password** under Authentication, and create a Firestore database.
-3. Connect the app to your Firebase project (this regenerates `lib/firebase_options.dart`):
+2. In the Firebase console, create a project, enable **Email/Password** under Authentication, and create a Firestore database.
+3. Connect the app to your project (this regenerates `lib/firebase_options.dart`):
    ```bash
    dart pub global activate flutterfire_cli
    dart pub global run flutterfire_cli:flutterfire configure
    ```
-4. Publish the security rules shown above in the Firestore Rules tab.
-5. Run the app:
+4. Publish the security rules shown above in the Firestore **Rules** tab.
+5. Run on a connected Android phone or emulator (reminders do not work in a browser):
    ```bash
    flutter run
    ```
-   For a quick test without a phone or emulator you can use `flutter run -d chrome`.
+
+### Build an APK
+
+```bash
+flutter build apk --release
+```
+
+The file is created at `build/app/outputs/flutter-apk/app-release.apk`.
+
+## Known limitations
+
+- Tested on Android only. Reminders need a phone or emulator, not a browser.
+- The doctor report uses each medicine's current dose times for the whole period. Past schedules are not kept when times are edited.
+- Medicine name suggestions are generic names only.
+- The duplicate check compares exact names (ignoring capitals and spaces), so "Aspirin" and "Acetylsalicylic acid" count as different.
+- Phone makers' battery managers can block reminders until the settings above are changed.
+- Changing the password or the display name needs an internet connection.
+- The interface is in English only, and dates use the Gregorian calendar.
 
 ## Roadmap
 
-1. Appointments (add, edit, delete, upcoming list)
-2. Local reminders for medications and appointments
-3. Photo of each medicine, stored on the device
-4. Medication history with start and end dates, for doctor visits
-5. Optional: read the medicine name from a photo of the box (on-device text recognition)
+- PDF export of the doctor report
+- Discreet notifications (hide the medicine name on the lock screen)
+- Snooze, and critical reminders for important medicines
+- Amharic language support
+- Photo of the medicine box, and reading the medicine name from it with on-device text recognition
 
 ## Author
 
-Built by [Kalkidan Asdro] as a graduation project.
+Built by Kalkidan Asdro as a graduation project for summer camp.
 CTC-3081-26
 
 ## Acknowledgements
 
 - Ethiopian Food and Drug Authority (EFDA) and the Ministry of Health, Ethiopia, for the Essential Medicines List
-- INSA cyber talent Summer camp mentors for their guidance
+- Summer camp mentors for their guidance
