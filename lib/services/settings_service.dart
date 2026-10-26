@@ -6,9 +6,13 @@ class SettingsService extends ChangeNotifier {
   static final SettingsService instance = SettingsService._();
 
   static const _themeKey = 'theme_mode';
+  static const _discreetKey = 'discreet_notifications';
 
   ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
+
+  bool _discreet = false;
+  bool get discreetNotifications => _discreet;
 
   Future<void> load() async {
     try {
@@ -18,8 +22,9 @@ class SettingsService extends ChangeNotifier {
         (m) => m.name == saved,
         orElse: () => ThemeMode.system,
       );
+      _discreet = prefs.getBool(_discreetKey) ?? false;
     } catch (_) {
-      // Keep the default if reading fails.
+      // Keep the defaults if reading fails.
     }
   }
 
@@ -31,6 +36,17 @@ class SettingsService extends ChangeNotifier {
       await prefs.setString(_themeKey, mode.name);
     } catch (_) {
       // The theme still changes for this session even if saving fails.
+    }
+  }
+
+  Future<void> setDiscreetNotifications(bool value) async {
+    _discreet = value;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_discreetKey, value);
+    } catch (_) {
+      // Still applies for this session even if saving fails.
     }
   }
 }

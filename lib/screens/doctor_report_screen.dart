@@ -74,7 +74,7 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
     });
   }
 
-    Future<void> _sharePdf() async {
+  Future<void> _sharePdf() async {
     if (_exporting) return;
     setState(() => _exporting = true);
     try {
@@ -205,7 +205,7 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
       appBar: AppBar(
         title: const Text('Doctor report'),
         actions: [
-                    IconButton(
+          IconButton(
             tooltip: 'Share as PDF',
             icon: _exporting
                 ? const SizedBox(
@@ -278,12 +278,18 @@ class _ReportView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final email = FirebaseAuth.instance.currentUser?.email ?? '';
+    final displayName = (FirebaseAuth.instance.currentUser?.displayName ?? '')
+        .trim();
+    final who = [
+      if (displayName.isNotEmpty) displayName,
+      if (email.isNotEmpty) email,
+    ].join(' | ');
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'Prepared ${formatDate(data.now)}${email.isEmpty ? '' : ' · $email'}',
+          'Prepared ${formatDate(data.now)}${who.isEmpty ? '' : ' | $who'}',
           style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
@@ -411,7 +417,7 @@ class _MedCard extends StatelessWidget {
             if (stats.details.isNotEmpty) Text(stats.details),
             if (med != null && med.times.isNotEmpty)
               Text('Times: ${med.times.join(', ')}'),
-                        if (med != null) Text(_periodText(med)),
+            if (med != null) Text(_periodText(med)),
             if (med != null && med.notes.isNotEmpty)
               Text('Notes: ${med.notes}'),
             if (removed)
@@ -491,6 +497,7 @@ class _Count extends StatelessWidget {
     );
   }
 }
+
 String _periodText(Medication med) {
   final start = med.startDate ?? med.createdAt;
   final parts = <String>[];
@@ -505,13 +512,17 @@ String _periodText(Medication med) {
 }
 
 pw.Widget _pdfCount(String label, String value) => pw.Column(
-      children: [
-        pw.Text(value,
-            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-        pw.Text(label,
-            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-      ],
-    );
+  children: [
+    pw.Text(
+      value,
+      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+    ),
+    pw.Text(
+      label,
+      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+    ),
+  ],
+);
 
 Future<Uint8List> _buildPdf(_ReportData data, int days) async {
   final email = FirebaseAuth.instance.currentUser?.email ?? '';
@@ -521,8 +532,9 @@ Future<Uint8List> _buildPdf(_ReportData data, int days) async {
   // If the font file is not in the project, only Latin text shows.
   final fallback = <pw.Font>[];
   try {
-    final bytes =
-        await rootBundle.load('assets/fonts/NotoSansEthiopic-Regular.ttf');
+    final bytes = await rootBundle.load(
+      'assets/fonts/NotoSansEthiopic-Regular.ttf',
+    );
     fallback.add(pw.Font.ttf(bytes));
   } catch (_) {}
 
@@ -558,11 +570,15 @@ Future<Uint8List> _buildPdf(_ReportData data, int days) async {
                   'This report only shows what was recorded in MedTrack. '
                   'It is not medical advice.',
                   style: const pw.TextStyle(
-                      fontSize: 8, color: PdfColors.grey700),
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
                 ),
               ),
-              pw.Text('Page ${ctx.pageNumber} of ${ctx.pagesCount}',
-                  style: const pw.TextStyle(fontSize: 8)),
+              pw.Text(
+                'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
             ],
           ),
         ],
@@ -610,7 +626,7 @@ Future<Uint8List> _buildPdf(_ReportData data, int days) async {
           data.scheduled == 0
               ? 'No scheduled doses in this period.'
               : '${data.taken} of ${data.scheduled} scheduled doses recorded '
-                  'as taken.',
+                    'as taken.',
           style: small,
         ),
         pw.SizedBox(height: 16),
@@ -618,44 +634,57 @@ Future<Uint8List> _buildPdf(_ReportData data, int days) async {
         // Medicines
         pw.Text('Medicines', style: heading),
         pw.SizedBox(height: 6),
-        if (data.stats.isEmpty) pw.Text('No medications recorded.'),
-        for (final s in data.stats)
-          pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 8),
-            padding: const pw.EdgeInsets.all(8),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey300),
-              borderRadius: pw.BorderRadius.circular(4),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(s.name,
-                    style: pw.TextStyle(
-                        fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                if (s.details.isNotEmpty)
-                  pw.Text(s.details.replaceAll(' · ', ', ')),
-                if (s.med != null && s.med!.times.isNotEmpty)
-                  pw.Text('Times: ${s.med!.times.join(', ')}'),
-                if (s.med != null) pw.Text(_periodText(s.med!)),
-                if (s.med != null && s.med!.notes.isNotEmpty)
-                  pw.Text('Notes: ${s.med!.notes}'),
-                if (s.med == null)
-                  pw.Text(
-                    'Deleted from the app; only recorded doses are shown.',
-                    style: pw.TextStyle(fontStyle: pw.FontStyle.italic),
-                  ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  s.med == null
-                      ? 'Taken ${s.taken}, skipped ${s.skipped}'
-                      : 'Taken ${s.taken}, skipped ${s.skipped}, '
-                          'missed ${s.missed} '
-                          '(taken ${s.percent}% of ${s.scheduled} scheduled)',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+        if (data.stats.isEmpty)
+          pw.Text('No medications recorded.')
+        else
+          pw.Table(
+            columnWidths: const {0: pw.FlexColumnWidth()},
+            border: pw.TableBorder.all(color: PdfColors.grey300),
+            children: [
+              for (final s in data.stats)
+                pw.TableRow(
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(8),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            s.name,
+                            style: pw.TextStyle(
+                              fontSize: 13,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          if (s.details.isNotEmpty)
+                            pw.Text(s.details.replaceAll(' · ', ', ')),
+                          if (s.med != null && s.med!.times.isNotEmpty)
+                            pw.Text('Times: ${s.med!.times.join(', ')}'),
+                          if (s.med != null) pw.Text(_periodText(s.med!)),
+                          if (s.med != null && s.med!.notes.isNotEmpty)
+                            pw.Text('Notes: ${s.med!.notes}'),
+                          if (s.med == null)
+                            pw.Text(
+                              'Deleted from the app; only recorded doses are shown.',
+                              style: pw.TextStyle(
+                                fontStyle: pw.FontStyle.italic,
+                              ),
+                            ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            s.med == null
+                                ? 'Taken ${s.taken}, skipped ${s.skipped}'
+                                : 'Taken ${s.taken}, skipped ${s.skipped}, '
+                                      'missed ${s.missed} '
+                                      '(taken ${s.percent}% of ${s.scheduled} scheduled)',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+            ],
           ),
         pw.SizedBox(height: 10),
 

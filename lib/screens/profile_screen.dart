@@ -33,7 +33,7 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
-    controller.dispose();
+    //controller.dispose();
     if (newName == null) return;
 
     try {

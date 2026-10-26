@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/settings_service.dart';
 import 'change_password_screen.dart';
-
+import '../services/notification_service.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -50,6 +50,24 @@ class SettingsScreen extends StatelessWidget {
                 onSelectionChanged: (s) =>
                     SettingsService.instance.setThemeMode(s.first),
               ),
+            ),
+          ),
+          const Divider(height: 1),
+                    _header(context, 'Notifications'),
+          ListenableBuilder(
+            listenable: SettingsService.instance,
+            builder: (context, _) => SwitchListTile(
+              secondary: const Icon(Icons.visibility_off_outlined),
+              title: const Text('Discreet notifications'),
+              subtitle: const Text(
+                'Hide medicine and doctor names on the lock screen. '
+                'Open the app to see the details.',
+              ),
+              value: SettingsService.instance.discreetNotifications,
+              onChanged: (v) async {
+                await SettingsService.instance.setDiscreetNotifications(v);
+                await NotificationService.instance.refresh();
+              },
             ),
           ),
           const Divider(height: 1),

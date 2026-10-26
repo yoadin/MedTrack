@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
-
+import 'settings_service.dart';
 import '../models/appointment.dart';
 import '../models/medication.dart';
 import '../utils/format.dart';
@@ -27,15 +27,15 @@ class NotificationService {
   Future<void> _queue = Future.value();
 
   NotificationDetails _detailsFor(String body) => NotificationDetails(
-        android: AndroidNotificationDetails(
-          'med_reminders',
-          'Medication reminders',
-          channelDescription: 'Reminders to take your medicines',
-          importance: Importance.high,
-          priority: Priority.high,
-          styleInformation: BigTextStyleInformation(body),
-        ),
-      );
+    android: AndroidNotificationDetails(
+      'med_reminders',
+      'Medication reminders',
+      channelDescription: 'Reminders to take your medicines',
+      importance: Importance.high,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body),
+    ),
+  );
 
   Future<void> init() async {
     tzdata.initializeTimeZones();
@@ -49,8 +49,10 @@ class NotificationService {
 
   Future<void> requestPermissions() async {
     if (kIsWeb) return;
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await android?.requestNotificationsPermission();
     await android?.requestExactAlarmsPermission();
   }
@@ -72,6 +74,8 @@ class NotificationService {
     return _rebuild();
   }
 
+  /// Rebuilds every reminder (used when a setting that changes the text is toggled).
+  Future<void> refresh() => _rebuild();
   // Rebuilds run one after another, each using the latest lists.
   Future<void> _rebuild() {
     _queue = _queue.then((_) => _doRebuild());
@@ -82,8 +86,14 @@ class NotificationService {
   tz.TZDateTime _nextInstance(String hhmm) {
     final parts = hhmm.split(':');
     final now = tz.TZDateTime.now(tz.local);
-    var t = tz.TZDateTime(tz.local, now.year, now.month, now.day,
-        int.parse(parts[0]), int.parse(parts[1]));
+    var t = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
     if (!t.isAfter(now)) t = t.add(const Duration(days: 1));
     return t;
   }
@@ -97,8 +107,14 @@ class NotificationService {
       if (!med.isActiveOn(day)) continue;
       for (final time in med.times) {
         final p = time.split(':');
-        final when = tz.TZDateTime(tz.local, day.year, day.month, day.day,
-            int.parse(p[0]), int.parse(p[1]));
+        final when = tz.TZDateTime(
+          tz.local,
+          day.year,
+          day.month,
+          day.day,
+          int.parse(p[0]),
+          int.parse(p[1]),
+        );
         if (when.isAfter(now)) result.add(when);
       }
     }
@@ -139,8 +155,13 @@ class NotificationService {
           if (med.dose.isNotEmpty) 'Dose: ${med.dose}',
           if (med.form.isNotEmpty) med.form,
         ].join(' · ');
-        final text = body.isEmpty ? 'Tap to open MedTrack' : body;
-        final title = 'Time to take ${med.name}';
+        final discreet = SettingsService.instance.discreetNotifications;
+        final text = discreet
+            ? 'Open MedTrack to see the details'
+            : (body.isEmpty ? 'Tap to open MedTrack' : body);
+        final title = discreet
+            ? 'MedTrack reminder'
+            : 'Time to take ${med.name}';
 
         if (med.endDate == null && !med.startsLater) {
           // Ongoing: one repeating daily reminder per dose time.
@@ -167,19 +188,28 @@ class NotificationService {
       var apptId = _appointmentIdBase;
       for (final a in _appointments) {
         final when = tz.TZDateTime.from(a.dateTime, tz.local);
+        final discreet = SettingsService.instance.discreetNotifications;
         final info = [
           'With ${a.doctor} at ${formatTime(a.dateTime)}',
           if (a.place.isNotEmpty) a.place,
         ].join(' · ');
 
         final prev = when.subtract(const Duration(days: 1));
-        final dayBefore = tz.TZDateTime(tz.local, prev.year, prev.month,
-            prev.day, _dayBeforeHour, _dayBeforeMinute);
+        final dayBefore = tz.TZDateTime(
+          tz.local,
+          prev.year,
+          prev.month,
+          prev.day,
+          _dayBeforeHour,
+          _dayBeforeMinute,
+        );
         if (dayBefore.isAfter(now)) {
           await _schedule(
             id: apptId,
-            title: 'Appointment tomorrow',
-            body: info,
+            title: discreet ? 'MedTrack reminder' : 'Appointment tomorrow',
+            body: discreet
+                ? 'You have something tomorrow. Open MedTrack.'
+                : info,
             when: dayBefore,
           );
         }
@@ -188,8 +218,10 @@ class NotificationService {
         if (hourBefore.isAfter(now)) {
           await _schedule(
             id: apptId + 1,
-            title: 'Appointment in 1 hour',
-            body: info,
+            title: discreet ? 'MedTrack reminder' : 'Appointment in 1 hour',
+            body: discreet
+                ? 'You have something in 1 hour. Open MedTrack.'
+                : info,
             when: hourBefore,
           );
         }

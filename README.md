@@ -22,6 +22,7 @@ A mobile app that helps people keep track of their medicines and doctor appointm
 - Local notifications that work without internet, showing the medicine name, dose and form
 - Daily repeating reminders for ongoing medicines; day-by-day reminders for medicines with an end date
 - Appointment reminders the evening before (18:00) and one hour before
+- Discreet mode hides medicine and doctor names in notifications
 
 **Appointments**
 - Add, edit and delete appointments (doctor or clinic, place, date and time, notes)
@@ -209,7 +210,6 @@ The file is created at `build/app/outputs/flutter-apk/app-release.apk`.
 
 ## Roadmap
 
-- Discreet notifications (hide the medicine name on the lock screen)
 - Snooze, and critical reminders for important medicines
 - Amharic language support
 - Photo of the medicine box, and reading the medicine name from it with on-device text recognition
