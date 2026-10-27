@@ -218,7 +218,8 @@ The file is created at `build/app/outputs/flutter-apk/app-release.apk`.
 
 Built by Kalkidan Asdro as a graduation project for summer camp.
 CTC-3081-26
-
+## Video Demo
+[MedTrack Video Demo](https://drive.google.com/file/d/1AIPgy90aoYG0ODA_qUkUq5G2FeSR0vaX/view?usp=drive_link)
 ## Acknowledgements
 
 - Ethiopian Food and Drug Authority (EFDA) and the Ministry of Health, Ethiopia, for the Essential Medicines List
